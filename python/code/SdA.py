@@ -111,9 +111,9 @@ class SdA(object):
         # and when constructing each sigmoidal layer we also construct a
         # denoising autoencoder that shares weights with that layer
         # During pretraining we will train these autoencoders (which will
-        # lead to chainging the weights of the MLP as well)
+        # lead to changing the weights of the MLP as well)
         # During finetunining we will finish training the SdA by doing
-        # stochastich gradient descent on the MLP
+        # stochastic gradient descent on the MLP
 
         # start-snippet-2
         for i in xrange(self.n_layers):
@@ -148,21 +148,21 @@ class SdA(object):
             # dA, but not the SdA
             self.params.extend(sigmoid_layer.params)
 
-            # Construct a denoising autoencoder that shared weights with this
-            # layer
+            # Construct a denoising autoencoder that shares weights with this
+            # sigmoidal layer of the MLP, so that when training this dA, we also update the weights of the MLP layer:
             dA_layer = dA(numpy_rng=numpy_rng,
                           theano_rng=theano_rng,
                           input=layer_input,
                           n_visible=input_size,
                           n_hidden=hidden_layers_sizes[i],
-                          W=sigmoid_layer.W,
+                          W=sigmoid_layer.W,       # this is where we are sharing the weights with MLP weights
                           bhid=sigmoid_layer.b)
             self.dA_layers.append(dA_layer)
         # end-snippet-2
         # We now need to add a logistic layer on top of the MLP
         self.logLayer = LogisticRegression(
             input=self.sigmoid_layers[-1].output,
-            n_in=hidden_layers_sizes[-1],
+            n_in=hidden_layers_sizes[-1],  # note that [-1] refers to the last element of the list
             n_out=n_outs
         )
 
@@ -218,7 +218,7 @@ class SdA(object):
                     theano.Param(learning_rate, default=0.1)
                 ],
                 outputs=cost,
-                updates=updates,
+                updates=updates,   # apply the parameter updates when fn is called
                 givens={
                     self.x: train_set_x[batch_begin: batch_end]
                 }
@@ -263,7 +263,7 @@ class SdA(object):
         # compute the gradients with respect to the model parameters
         gparams = T.grad(self.finetune_cost, self.params)
 
-        # compute list of fine-tuning updates
+        # compute list of fine-tuning updates. Where are these updates actually applied?
         updates = [
             (param, param - gparam * learning_rate)
             for param, gparam in zip(self.params, gparams)
@@ -272,7 +272,7 @@ class SdA(object):
         train_fn = theano.function(
             inputs=[index],
             outputs=self.finetune_cost,
-            updates=updates,
+            updates=updates,   # apply the parameter updates, see http://deeplearning.net/software/theano/tutorial/examples.html#basictutexamples
             givens={
                 self.x: train_set_x[
                     index * batch_size: (index + 1) * batch_size
@@ -370,12 +370,7 @@ def test_SdA(finetune_lr=0.1, pretraining_epochs=15,
         hidden_layers_sizes=[1000, 1000, 1000],
         n_outs=10
     )
-    #sda = SdA(
-    #          numpy_rng=numpy_rng,
-    #          n_ins=28 * 28,
-    #          hidden_layers_sizes=[28*28, 17*17],   # YT: 2 layers, to compare with mnist-representations.R
-    #          n_outs=10
-    #          )
+ 
     # end-snippet-3 start-snippet-4
     #########################
     # PRETRAINING THE MODEL #
@@ -383,7 +378,23 @@ def test_SdA(finetune_lr=0.1, pretraining_epochs=15,
     print '... getting the pretraining functions'
     pretraining_fns = sda.pretraining_functions(train_set_x=train_set_x,
                                                 batch_size=batch_size)
-
+                                                
+    
+    # get the training, validation and testing function for the model
+    print '... getting the finetuning functions'
+    train_fn, validate_model, test_model = sda.build_finetune_functions(
+                                                                        datasets=datasets,
+                                                                        batch_size=batch_size,
+                                                                        learning_rate=finetune_lr
+                                                                        )
+    
+    # test the freshly initialised model on the test set, before proceeding to pretrain it:
+    test_score = 0.
+    test_losses = test_model()
+    test_score = numpy.mean(test_losses)
+    print((' Test error of the fresh model before pre-training: %f %%') %(test_score * 100.))
+    print ''
+    
     print '... pre-training the model'
     start_time = timeit.default_timer()
     ## Pre-train layer-wise
@@ -395,7 +406,7 @@ def test_SdA(finetune_lr=0.1, pretraining_epochs=15,
             # go through the training set
             c = []
             for batch_index in xrange(n_train_batches):
-                c.append(pretraining_fns[i](index=batch_index,
+                c.append(pretraining_fns[i](index=batch_index,     #this call of pretraining_fns[i] updates the parameters of the i-th layer of sda?
                          corruption=corruption_levels[i],
                          lr=pretrain_lr))
             print 'Pre-training layer %i, epoch %d, cost ' % (i, epoch),
@@ -411,14 +422,6 @@ def test_SdA(finetune_lr=0.1, pretraining_epochs=15,
     ########################
     # FINETUNING THE MODEL #
     ########################
-
-    # get the training, validation and testing function for the model
-    print '... getting the finetuning functions'
-    train_fn, validate_model, test_model = sda.build_finetune_functions(
-        datasets=datasets,
-        batch_size=batch_size,
-        learning_rate=finetune_lr
-    )
     
     # test the pre-trained model on the test set, before proceeding to fine-tune it:
     test_score = 0.
@@ -426,6 +429,7 @@ def test_SdA(finetune_lr=0.1, pretraining_epochs=15,
     test_score = numpy.mean(test_losses)
     print((' Test error of the pre-trained model before fine-tuning: %f %%') %(test_score * 100.))
     print ''
+    
     print '... fine-tuning the model'
     # early-stopping parameters
     patience = 10 * n_train_batches  # look as this many examples regardless
@@ -476,6 +480,7 @@ def test_SdA(finetune_lr=0.1, pretraining_epochs=15,
                     # test it on the test set
                     test_losses = test_model()
                     test_score = numpy.mean(test_losses)
+                    
                     print(('     epoch %i, minibatch %i/%i, test error of '
                            'best model %f %%') %
                           (epoch, minibatch_index + 1, n_train_batches,
