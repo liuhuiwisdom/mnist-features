@@ -169,7 +169,7 @@ class LogisticRegression(object):
             raise NotImplementedError()
 
 
-def load_data(dataset):
+def load_data(dataset, train_size=None, valid_size=None, test_size=None):
     ''' Loads the dataset
 
     :type dataset: string
@@ -214,7 +214,7 @@ def load_data(dataset):
     #the number of rows in the input. It should give the target
     #to the example with the same index in the input.
 
-    def shared_dataset(data_xy, borrow=True):
+    def shared_dataset(data_xy, size=None, borrow=True):
         """ Function that loads the dataset into shared variables
 
         The reason we store our dataset in shared variables is to allow
@@ -224,6 +224,11 @@ def load_data(dataset):
         variable) would lead to a large decrease in performance.
         """
         data_x, data_y = data_xy
+        if size is not None:
+            size = min(size,data_x.shape[0])   # make sure the size does not exceed the number of rows of data_xy
+            data_x = data_x[xrange(size),]
+            data_y = data_y[xrange(size)]
+        
         shared_x = theano.shared(numpy.asarray(data_x,
                                                dtype=theano.config.floatX),
                                  borrow=borrow)
@@ -239,9 +244,9 @@ def load_data(dataset):
         # lets us get around this issue
         return shared_x, T.cast(shared_y, 'int32')
 
-    test_set_x, test_set_y = shared_dataset(test_set)
-    valid_set_x, valid_set_y = shared_dataset(valid_set)
-    train_set_x, train_set_y = shared_dataset(train_set)
+    test_set_x, test_set_y = shared_dataset(test_set, test_size)
+    valid_set_x, valid_set_y = shared_dataset(valid_set, valid_size)
+    train_set_x, train_set_y = shared_dataset(train_set, train_size)
 
     rval = [(train_set_x, train_set_y), (valid_set_x, valid_set_y),
             (test_set_x, test_set_y)]
