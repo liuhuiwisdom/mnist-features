@@ -11,7 +11,7 @@ x.test <- mnist.data$test$x
 y.test <- mnist.data$test$y
 
 # Generating the darch
-darch <- newDArch(c(28*28,1000,1000,1000,10),batchSize=100)
+darch <- newDArch(c(28*28,1000,10),batchSize=100)
 
 # Pre-Train the darch
 darch <- preTrainDArch(darch,x.train,maxEpoch=10)
@@ -28,8 +28,7 @@ rm(layers)
 
 # Setting and running the Fine-Tune function
 setFineTuneFunction(darch) <- backpropagation
-darch <- fineTuneDArch(darch,x.train,y.train,maxEpoch=1000)
-# darch <- fineTuneDArch(darch,x.train,as.matrix(y.train),maxEpoch=1000)
+darch <- fineTuneDArch(darch,x.train,as.matrix(y.train),maxEpoch=1000)
 
 
 # Running the darch

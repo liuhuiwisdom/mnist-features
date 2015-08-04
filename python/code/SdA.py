@@ -323,9 +323,9 @@ class SdA(object):
         return train_fn, valid_score, test_score
 
 
-def test_SdA(finetune_lr=0.1, pretraining_epochs=15,
-             pretrain_lr=0.001, training_epochs=1000,
-             dataset='mnist.pkl.gz', batch_size=1):
+def test_SdA(finetune_lr=0.1/0.1*0.8, pretraining_epochs=5,
+             pretrain_lr=0.001/0.001*0.8, training_epochs=1000,
+             dataset='mnist.pkl.gz', batch_size=100):
     """
     Demonstrates how to train and test a stochastic denoising autoencoder.
 
