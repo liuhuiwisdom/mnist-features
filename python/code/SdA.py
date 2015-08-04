@@ -350,11 +350,23 @@ def test_SdA(finetune_lr=0.1/0.1*0.8, pretraining_epochs=5,
 
     """
 
+    train_size = 10000
+    valid_size = 5000
+    test_size = 10000
     datasets = load_data(dataset)
 
     train_set_x, train_set_y = datasets[0]
     valid_set_x, valid_set_y = datasets[1]
     test_set_x, test_set_y = datasets[2]
+    
+    print 'train_set_x type:'
+    print train_set_x.type
+    print '.... shape of train_set_x:'
+    print train_set_x.get_value(borrow=True).shape
+    print '.... shape of valid_set_x:'
+    print valid_set_x.get_value(borrow=True).shape
+    print '.... shape of test_set_x:'
+    print test_set_x.get_value(borrow=True).shape
     
     # compute number of minibatches for training, validation and testing
     n_train_batches = train_set_x.get_value(borrow=True).shape[0]
