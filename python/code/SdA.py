@@ -90,9 +90,9 @@ class SdA(object):
                                   layer
         """
 
-        self.sigmoid_layers = []
-        self.dA_layers = []
-        self.params = []
+        self.sigmoid_layers = []  # list of sigmoid layers of the MLP facade of the SdA object
+        self.dA_layers = []  # list of dA layers of the dA facade. The weights and biases of dA layers are tied to those of the sigmoid layers of the MLP facade, so when training dA instances, we also update the parameters of the sigmoid layers (but NOT of the logistic layer sitting on top!) of the MLP facade.
+        self.params = []  # parameters of the MLP facade (of sigmoid layers and of the logistic layer on top)
         self.n_layers = len(hidden_layers_sizes)
 
         assert self.n_layers > 0
@@ -106,14 +106,15 @@ class SdA(object):
         # end-snippet-1
 
         # The SdA is an MLP, for which all weights of intermediate layers
-        # are shared with a different denoising autoencoders
+        # are shared with the corresponding denoising autoencoders.
         # We will first construct the SdA as a deep multilayer perceptron,
-        # and when constructing each sigmoidal layer we also construct a
-        # denoising autoencoder that shares weights with that layer
+        # and when constructing each sigmoidal layer we also construct a corresponding
+        # denoising autoencoder that shares weights with that layer.
         # During pretraining we will train these autoencoders (which will
-        # lead to changing the weights of the MLP as well)
+        # lead to changing the weights of the sigmoid layers stack of MLP as well,
+        # but NOT the weights of the slogistic layer on top of the MLP!)
         # During finetunining we will finish training the SdA by doing
-        # stochastic gradient descent on the MLP
+        # stochastic gradient descent on the whole MLP, including now the logistic layer on top.
 
         # start-snippet-2
         for i in xrange(self.n_layers):
@@ -134,7 +135,7 @@ class SdA(object):
             else:
                 layer_input = self.sigmoid_layers[-1].output
 
-            sigmoid_layer = HiddenLayer(rng=numpy_rng,
+            sigmoid_layer = HiddenLayer(rng=numpy_rng,   # initialization: random weights, zero biases
                                         input=layer_input,
                                         n_in=input_size,
                                         n_out=hidden_layers_sizes[i],
@@ -155,11 +156,11 @@ class SdA(object):
                           input=layer_input,
                           n_visible=input_size,
                           n_hidden=hidden_layers_sizes[i],
-                          W=sigmoid_layer.W,       # this is where we are sharing the weights with MLP weights
+                          W=sigmoid_layer.W,       # this is where we are sharing the weights of the new dA_layer instance with the corresponding MLP weights
                           bhid=sigmoid_layer.b)
             self.dA_layers.append(dA_layer)
         # end-snippet-2
-        # We now need to add a logistic layer on top of the MLP
+        # We now need to add a logistic layer on top of the sigmoid layers stack (note that the weights and biases of the logistic layer are initialized as 0)
         self.logLayer = LogisticRegression(
             input=self.sigmoid_layers[-1].output,
             n_in=hidden_layers_sizes[-1],  # note that [-1] refers to the last element of the list
@@ -179,7 +180,7 @@ class SdA(object):
 
     def pretraining_functions(self, train_set_x, batch_size):
         ''' Generates a list of functions, each of them implementing one
-        step in trainnig the dA corresponding to the layer with same index.
+        step in training the dA corresponding to the layer with same index.
         The function will require as input the minibatch index, and to train
         a dA you just need to iterate, calling the corresponding function on
         all minibatch indexes.
@@ -230,7 +231,7 @@ class SdA(object):
 
     def build_finetune_functions(self, datasets, batch_size, learning_rate):
         '''Generates a function `train` that implements one step of
-        finetuning, a function `validate` that computes the error on
+        finetuning the whole MLP instance, a function `validate` that computes the error on
         a batch from the validation set, and a function `test` that
         computes the error on a batch from the testing set
 
@@ -263,7 +264,7 @@ class SdA(object):
         # compute the gradients with respect to the model parameters
         gparams = T.grad(self.finetune_cost, self.params)
 
-        # compute list of fine-tuning updates. Where are these updates actually applied?
+        # compute list of fine-tuning updates of the MLP parameters.
         updates = [
             (param, param - gparam * learning_rate)
             for param, gparam in zip(self.params, gparams)
@@ -388,7 +389,7 @@ def test_SdA(finetune_lr=0.1/0.1*0.8, pretraining_epochs=5,
                                                                         learning_rate=finetune_lr
                                                                         )
     
-    # test the freshly initialised model on the test set, before proceeding to pretrain it:
+    # test the freshly initialised model on the test set (should be ~90% for the 10-class mnist problem, i.e., pure chance error):
     test_score = 0.
     test_losses = test_model()
     test_score = numpy.mean(test_losses)
@@ -424,11 +425,12 @@ def test_SdA(finetune_lr=0.1/0.1*0.8, pretraining_epochs=5,
     ########################
     
     # test the pre-trained model on the test set, before proceeding to fine-tune it:
-    test_score = 0.
-    test_losses = test_model()
-    test_score = numpy.mean(test_losses)
-    print((' Test error of the pre-trained model before fine-tuning: %f %%') %(test_score * 100.))
-    print ''
+    # THIS will be huge (i.e., no better than pure chance), because during pre-training only the parameters of the sigmoid layers stack of the MLP are trained, NOT the parameters of the logistic layer on top of the MLP facade. The error is measured from the predictions of this, yet untrained, logistic layer on top of the pre-trained sigmoid layers stack. The logistic layer will only be trained during the fine-tuning stage, in a supervised mode.
+    #test_score = 0.
+    #test_losses = test_model()
+    #test_score = numpy.mean(test_losses)
+    #print((' Test error of the pre-trained model before fine-tuning: %f %%') %(test_score * 100.))
+    #print ''
     
     print '... fine-tuning the model'
     # early-stopping parameters
