@@ -324,9 +324,9 @@ class SdA(object):
         return train_fn, valid_score, test_score
 
 
-def test_SdA(finetune_lr=0.1, pretraining_epochs=5,
+def test_SdA(finetune_lr=0.1, pretraining_epochs=15,
              pretrain_lr=0.001, training_epochs=1000,
-             dataset='mnist.pkl.gz', batch_size=100, train_size=None, valid_size=None, test_size=None):
+             dataset='mnist.pkl.gz', batch_size=1, train_size=None, valid_size=None, test_size=None):
     """
     Demonstrates how to train and test a stochastic denoising autoencoder.
 
@@ -400,7 +400,7 @@ def test_SdA(finetune_lr=0.1, pretraining_epochs=5,
     test_score = 0.
     test_losses = test_model()
     test_score = numpy.mean(test_losses)
-    print((' Test error of the fresh model before pre-training: %f %%') %(test_score * 100.))
+    print((' Test error of the fresh model: %f %%') %(test_score * 100.))
     print ''
     
     print '... pre-training the model'
