@@ -226,8 +226,8 @@ def load_data(dataset, train_size=None, valid_size=None, test_size=None):
         data_x, data_y = data_xy
         if size is not None:
             size = min(size,data_x.shape[0])   # make sure the size does not exceed the number of rows of data_xy
-            data_x = data_x[xrange(size),]
-            data_y = data_y[xrange(size)]
+            data_x = data_x[range(size),]
+            data_y = data_y[range(size)]
         
         shared_x = theano.shared(numpy.asarray(data_x,
                                                dtype=theano.config.floatX),
@@ -255,7 +255,7 @@ def load_data(dataset, train_size=None, valid_size=None, test_size=None):
 
 def sgd_optimization_mnist(learning_rate=0.13, n_epochs=1000,
                            dataset='mnist.pkl.gz',
-                           batch_size=600):
+                           batch_size=1, train_size=None, valid_size=None, test_size=None):
     """
     Demonstrate stochastic gradient descent optimization of a log-linear
     model
@@ -274,12 +274,19 @@ def sgd_optimization_mnist(learning_rate=0.13, n_epochs=1000,
                  http://www.iro.umontreal.ca/~lisa/deep/data/mnist/mnist.pkl.gz
 
     """
-    datasets = load_data(dataset)
+    datasets = load_data(dataset, train_size, valid_size, test_size)
 
     train_set_x, train_set_y = datasets[0]
     valid_set_x, valid_set_y = datasets[1]
     test_set_x, test_set_y = datasets[2]
-
+    
+    print '.... shape of train_set_x:'
+    print train_set_x.get_value(borrow=True).shape
+    print '.... shape of valid_set_x:'
+    print valid_set_x.get_value(borrow=True).shape
+    print '.... shape of test_set_x:'
+    print test_set_x.get_value(borrow=True).shape
+    
     # compute number of minibatches for training, validation and testing
     n_train_batches = train_set_x.get_value(borrow=True).shape[0] / batch_size
     n_valid_batches = valid_set_x.get_value(borrow=True).shape[0] / batch_size
